@@ -1,0 +1,15 @@
+version: "3.8"
+services:
+  syno-slideshow:
+    build: .
+    container_name: syno-photos-slideshow-gif
+    restart: unless-stopped
+    ports:
+      - "23535:3000"
+    env_file: .env
+    environment:
+      - TZ=America/New_York
+      - ADMIN_TOKEN=1896607c4f24b3208dec8e6218f2c75b
+    volumes:
+      - /volume1/docker/syno-slideshow-gif/config.json:/app/config.json 
+      - /volume1/docker/syno-slideshow-gif/public:/app/public
