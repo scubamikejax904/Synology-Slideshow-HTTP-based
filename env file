@@ -1,16 +1,17 @@
 # NAS Connection
-NAS_URL=https://192.168.1.36:5035
+NAS_URL=https://xxx.xxx.xxx.xxx:port#
 
 # Main Account Credentials (with 2FA)
-SYNO_USER=Scubamikejax904
-SYNO_PASS=Yfec8s_f
+SYNO_USER=
+SYNO_PASS=
 
 # 2FA TOTP Secret (the "private key" from your authenticator app)
 # Get this from: DSM  Control Panel  User  Your Account  2-Step Verification  Show secret
-TOTP_SECRET=SOYMZE6I5SQY3LIO
+TOTP_SECRET=
 
 # Admin token for config panel
-ADMIN_TOKEN=1896607c4f24b3208dec8e6218f2c75b
+# Used as a password for the admin.html page can be anything
+ADMIN_TOKEN=
 
 # Container port (internal)
 PORT=3000
