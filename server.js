@@ -15,7 +15,6 @@ app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Headers", "x-admin-token, Content-Type");
   next();
 });
-
 var NAS_URL = process.env.NAS_URL;
 var PORT = process.env.PORT || 3000;
 var SYN_USER = process.env.SYNO_USER;
@@ -458,7 +457,7 @@ app.get('/api/image', function(req, res) {
         // If Download API succeeded, return the image
         if (!ct.includes('text/html') && !ct.includes('application/json')) {
           console.log('[IMAGE] SUCCESS (Download API): ' + ct);
-          res.set('Cache-Control', 'public, max-age=86400');
+          res.set('Cache-Control', 'public, max-age=86400'); 
           res.set('Content-Type', ct);
           res.set('X-Image-Type', ct);
           return res.send(imgRes.data);
@@ -510,7 +509,7 @@ app.get('/api/image', function(req, res) {
             return res.status(502).json({ error: 'Both APIs failed' });
           }
           console.log('[IMAGE] SUCCESS (Thumbnail API fallback): ' + ct);
-          res.set('Cache-Control', 'public, max-age=86400');
+          res.set('Cache-Control', 'public, max-age=86400'); 
           res.set('Content-Type', ct);
           res.set('X-Image-Type', ct);
           res.send(thumbRes.data);
