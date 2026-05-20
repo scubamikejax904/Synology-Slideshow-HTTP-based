@@ -427,7 +427,7 @@ app.get('/api/image', function(req, res) {
   console.log('[IMAGE] Request: id=' + photoId + ' (original file)');
 
   // Add a tiny delay to avoid rate limiting (50ms)
-  return delay(50).then(function() {
+  return delay(10).then(function() {
     return getSid().then(function(currentSid) {
       //  Try Download API v2 first (for GIF support)
       var downloadParams = {
@@ -458,6 +458,7 @@ app.get('/api/image', function(req, res) {
         // If Download API succeeded, return the image
         if (!ct.includes('text/html') && !ct.includes('application/json')) {
           console.log('[IMAGE] SUCCESS (Download API): ' + ct);
+          res.set('Cache-Control', 'public, max-age=86400');
           res.set('Content-Type', ct);
           res.set('X-Image-Type', ct);
           return res.send(imgRes.data);
@@ -509,6 +510,7 @@ app.get('/api/image', function(req, res) {
             return res.status(502).json({ error: 'Both APIs failed' });
           }
           console.log('[IMAGE] SUCCESS (Thumbnail API fallback): ' + ct);
+          res.set('Cache-Control', 'public, max-age=86400');
           res.set('Content-Type', ct);
           res.set('X-Image-Type', ct);
           res.send(thumbRes.data);
