@@ -2,7 +2,7 @@ version: "3.8"
 services:
   syno-slideshow:
     build: .
-    container_name: syno-photos-slideshow-gif
+    container_name: syno-photos-slideshow
     restart: unless-stopped
     ports:
       - "23535:3000"
