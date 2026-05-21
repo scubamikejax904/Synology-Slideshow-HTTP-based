@@ -1,10 +1,5 @@
 {
-  "selectedAlbums": [
-    {
-      "id": "16",
-      "type": "normal"
-    }
-  ],
+  "selectedAlbums": [],
   "selectedTags": [],
   "slideshowInterval": 5000,
   "gifDisplayTime": 10000,
