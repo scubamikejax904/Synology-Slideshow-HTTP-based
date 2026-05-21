@@ -13,8 +13,5 @@ TOTP_SECRET=
 # Used as a password for the admin.html page can be anything
 ADMIN_TOKEN=
 
-# Container port (internal)
-PORT=3000
-
 # Allow self-signed certs on LAN
 NODE_TLS_REJECT_UNAUTHORIZED=0
