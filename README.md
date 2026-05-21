@@ -7,7 +7,7 @@ A lightweight, Docker-based web slideshow that streams photos and GIFs directly 
 ## 📋 Prerequisites
 - Synology NAS running **DSM 7.0+** with **Photos** station installed
 - User account with **read access** to Photos
-- **2FA (TOTP)** enabled on the Synology account
+- **2FA (TOTP)** enabled on the Synology account **Optoional**
 - Docker / Container Manager installed on the NAS
 - Local network access (or reverse proxy if exposing externally)
 
