@@ -8,7 +8,7 @@ services:
       - "23535:3000"
     env_file: .env
     environment:
-      - TZ=America/New_York #
+      - TZ=America/New_York #Change this to the same timezone you have setup on your NAS
     volumes:
       - /volume1/docker/syno-slideshow-gif/config.json:/app/config.json 
       - /volume1/docker/syno-slideshow-gif/public:/app/public
