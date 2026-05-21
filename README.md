@@ -24,7 +24,7 @@ Create a file named `.env` in your project root (`/volume1/docker/slideshow/`) w
 | `SYNO_PASS` | Password for the Synology user | `your_syno_password` |
 | `ADMIN_TOKEN` | Secret used to log into `admin.html` (recommended: 20+ chars) | `Kx9#mP2$vLq8!nR5wY7@zA` |
 | `TOTP_SECRET` | **Base32 secret** from Synology 2FA setup (not the 6-digit code) | `JBSWY3DPEHPK3PXP` |
-| `PORT` | (Optional) Container port. Defaults to `3000` | `3000` |
+| `PORT` | Container port. Defaults to `3000` **don't change**| `3000` |
 
 > 🔒 **Security Note:** Never commit `.env` to version control. Rotate `ADMIN_TOKEN` if exposed.
 
