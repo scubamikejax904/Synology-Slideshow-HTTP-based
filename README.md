@@ -48,7 +48,7 @@ Create a file named `.env` in your project root (`/volume1/docker/slideshow/`) w
         
         docker run -d \
           --name syno-photos-slideshow \
-          -p 13535:3000 \ #Change port number if necessary
+          -p 13535:3000 \ #Change outward port number if necessary
           --env-file .env \
           -v /etc/localtime:/etc/localtime:ro \
           -v $(pwd)/config.json:/app/config.json \
