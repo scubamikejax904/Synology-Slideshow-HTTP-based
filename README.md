@@ -31,7 +31,7 @@ Create a file named `.env` in your project root (`/volume1/docker/slideshow/`) w
 ---
 
 ## 🐳 Installation & Deployment
-***** **I used Container Manager to build this project on my Synology NAS, These docker commands are AI generated and untested** *****
+*******I used Container Manager to build this project on my Synology NAS, The below docker commands are AI generated and untested*******
 
 ## See further below for Synology container manager instructions
 
