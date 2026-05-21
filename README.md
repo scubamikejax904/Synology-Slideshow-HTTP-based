@@ -33,6 +33,8 @@ Create a file named `.env` in your project root (`/volume1/docker/slideshow/`) w
 ## 🐳 Installation & Deployment
 ***** **I used Container Manager to build this project on my Synology NAS, These docker commands are AI generated and untested** *****
 
+## See further below for Synology container manager instructions
+
 
 1. **Create project directory & files:**
 
@@ -55,7 +57,41 @@ Create a file named `.env` in your project root (`/volume1/docker/slideshow/`) w
           slideshow-server:latest
 
 > ⏱️ **Time Sync Required:** `-v /etc/localtime:/etc/localtime:ro` is mandatory. TOTP authentication will fail or loop if the container clock drifts from the NAS.
+Go to Configuration & Usage below
 
+---
+
+## Container Manager Instructions 
+1. Open file station and create a working directory named syno-slideshow (in your docker directory)
+   ex /volumd1/docker/syno-slideshow
+2. Download Github as Zip click code and download as zip
+   https://github.com/scubamikejax904/Synology-Slideshow-HTTP-based
+3. Extract all files into your working directory
+
+4. Edit the .env file using below table
+   
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NAS_URL` | Full HTTPS address of your NAS web portal with port | `https://192.168.1.2:5001` |
+| `SYNO_USER` | Username with Photos read access | `your_syno_username` |
+| `SYNO_PASS` | Password for the Synology user | `your_syno_password` |
+| `ADMIN_TOKEN` | Secret used to log into `admin.html` (recommended: 20+ chars) | `Kx9#mP2$vLq8!nR5wY7@zA` |
+| `TOTP_SECRET` | **Base32 secret** from Synology 2FA setup (not the 6-digit code) | `JBSWY3DPEHPK3PXP` |
+| `PORT` | Container port. Defaults to `3000` **don't change**| `3000` |
+
+> 🔒 **Security Note:** Never commit `.env` to version control. Rotate `ADMIN_TOKEN` if exposed.
+
+
+5. Open Container Manager
+6. Click project
+7. Click Create
+8. Give your project a name (syno-slideshow) or whatever you want to call it
+9. click path and point it to your working directory
+           When it pops up asking about using the docker-compose.ymal in the path make sure use existing is selected and press ok
+ 10. The Docker-compose comes up here is where you make your changes to TZ (Use https://timezone.mariushosting.com or   https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) and volumes make sure the paths are correct to your working directory
+ 11. You can ignore setting up web portal (I'm not exactly sure what it does, I have and haven't used it in the past with the same results        so I ignore it and Click Next
+ 12. Make sure Start the project once it is created is selected and click done and wait for it to build
+ 13. Once Build completes click close and proceed below to Configuration & Usage
 ---
 
 ## 🖥️ Configuration & Usage
@@ -110,7 +146,7 @@ Due to DSM API limitations, direct tag filtering is not supported on most DSM 7.
 - ✅ **Supported Media:** JPEG, PNG, WebP, GIF (animated)
 - ⚠️ **Video Support:** Not included due to high bandwidth/buffering impact. Use optimized GIFs instead.
 - ⚠️ **Tag API:** Direct `general_tag_id` filtering is ignored by Synology. Use the Conditional Album workaround above.
-- 🔐 **Security:** The admin UI requires token authentication. Do not expose port `13535` publicly without a reverse proxy & HTTPS.
+- 🔐 **Security:** The admin UI requires token authentication. Do not expose your port publicly without a reverse proxy & HTTPS.
 - 💾 **Persistence:** `config.json` and `.env` survive container rebuilds. Docker images can be safely removed/rebuilt.
 
 ---
