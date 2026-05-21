@@ -19,7 +19,7 @@ Create a file named `.env` in your project root (`/volume1/docker/slideshow/`) w
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `NAS_URL` | Full HTTPS address of your NAS web portal with port | `https://192.168.1.36:5035` |
+| `NAS_URL` | Full HTTPS address of your NAS web portal with port | `https://192.168.1.2:5001` |
 | `SYNO_USER` | Username with Photos read access | `your_syno_username` |
 | `SYNO_PASS` | Password for the Synology user | `your_syno_password` |
 | `ADMIN_TOKEN` | Secret used to log into `admin.html` (recommended: 20+ chars) | `Kx9#mP2$vLq8!nR5wY7@zA` |
