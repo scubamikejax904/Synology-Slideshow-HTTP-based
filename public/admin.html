@@ -41,7 +41,7 @@
 <body>
   <div id="loginModal">
     <div class="modal-content">
-      <h2>ߔࠁdmin Login</h2>
+      <h2>Admin Login</h2>
       <input type="password" id="passwordInput" placeholder="Enter admin password">
       <button class="btn btn-primary" onclick="login()">Login</button>
       <div id="loginError" class="status error"></div>
@@ -58,15 +58,8 @@
       <div class="item-list" id="albumList">Loading...</div>
     </div>
 
-    <div class="card">
-      <h2>Select Tags</h2>
-      <input type="text" class="search-box" id="tagSearch" placeholder="Search tags..." oninput="filterItems('tag')">
-      <div class="selected-count" id="tagCount">0 selected</div>
-      <div class="item-list" id="tagList">Loading...</div>
-    </div>
-
-    <div class="card">
-      <h2>⚙️ Slideshow Settings</h2>
+     <div class="card">
+      <h2> Slideshow Settings</h2>
       <div class="settings-grid">
         <div class="setting">
           <label>Interval (seconds)</label>
@@ -92,14 +85,14 @@
     <div>
       <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
       <button class="btn btn-secondary" onclick="window.location.href='/slideshow.html'">View Slideshow</button>
+      <button class="btn" style="background:#dc3545;color:white;margin-left:10px;" onclick="resetConfig()">Force Clear Config</button>
       <div id="saveStatus" class="status"></div>
     </div>
   </div>
 
-  <script>
-    let albums = [], tags = [];
+ <script>
+    let albums = [];
     let selectedAlbums = new Set();
-    let selectedTags = new Set();
     let authToken = localStorage.getItem('adminToken');
 
     async function login() {
@@ -125,157 +118,159 @@
       }
     }
 
+    // ✅ 100% Safe Config Loader
     async function loadConfig() {
       try {
-        const [configRes, albumsRes, tagsRes] = await Promise.all([
+        const [configRes, albumsRes] = await Promise.all([
           fetch('/api/config'),
-          fetch('/api/albums', { headers: { 'x-admin-token': authToken } }),
-          fetch('/api/tags', { headers: { 'x-admin-token': authToken } })
+          fetch('/api/albums', { headers: { 'x-admin-token': authToken } })
         ]);
 
         const config = await configRes.json();
         albums = await albumsRes.json();
-        tags = await tagsRes.json();
 
         selectedAlbums = new Set((config.selectedAlbums || []).map(a => 
-  typeof a === 'object' ? a : { id: String(a), type: 'normal' }
-));
-selectedTags = new Set(config.selectedTags || []);
+          typeof a === 'object' ? a : { id: String(a), type: 'normal' }
+        ));
 
-        document.getElementById('interval').value = (config.slideshowInterval || 5000) / 1000;
-        document.getElementById('imageSize').value = config.imageSize || 'xl';
-        document.getElementById('shuffle').checked = config.shuffle || false;
+        //  Safe DOM updates (won't throw if elements are missing/hidden)
+        const intervalEl = document.getElementById('interval');
+        if (intervalEl) intervalEl.value = ((config.slideshowInterval || 5000) / 1000).toString();
+        
+        const imageSizeEl = document.getElementById('imageSize');
+        if (imageSizeEl) imageSizeEl.value = config.imageSize || 'xl';
+        
+        const shuffleEl = document.getElementById('shuffle');
+        if (shuffleEl) shuffleEl.checked = config.shuffle !== false;
 
         renderAlbums();
-        renderTags();
         updateCounts();
       } catch (err) {
-        alert('Failed to load: ' + err.message);
+        console.error('Load error:', err);
+        // Only alert for real network/auth failures, not UI timing issues
+        if (err.message.includes('fetch') || err.message.includes('Unauthorized')) {
+          alert('Failed to load: ' + err.message);
+        }
       }
     }
 
     function renderAlbums() {
-  const list = document.getElementById('albumList');
-  const search = document.getElementById('albumSearch').value.toLowerCase();
-  
-  const filtered = albums.filter(a => a.name.toLowerCase().includes(search));
-  
-  list.innerHTML = filtered.map(album => {
-    // Create a safe string key for the Set: "id:type"
-    const key = album.id + ':' + (album.type || 'normal');
-    const isChecked = Array.from(selectedAlbums).some(a => 
-      (typeof a === 'object' ? (a.id + ':' + (a.type||'normal')) : a) === key
-    );
-    
-    // Use item_count (Synology Photos field) fallback to count
-    const photoCount = album.item_count || album.count || 0;
-    const typeBadge = album.type === 'condition' ? ' ' : '';
-    
-    return `
-      <div class="item">
-        <input type="checkbox" id="album-${album.id}" 
-          ${isChecked ? 'checked' : ''} 
-          onchange="toggleAlbum('${album.id}', '${album.type || 'normal'}')">
-        <label for="album-${album.id}">${album.name}${typeBadge}</label>
-        <span class="count">${photoCount} photos</span>
-      </div>
-    `;
-  }).join('');
-}
-
-    function renderTags() {
-  const list = document.getElementById('tagList');
-  const search = document.getElementById('tagSearch').value.toLowerCase();
-  
-  const filtered = tags.filter(t => t.name.toLowerCase().includes(search));
-  
-  list.innerHTML = filtered.map(tag => {
-    const photoCount = tag.item_count || tag.count || 0;
-    return `
-      <div class="item">
-        <input type="checkbox" id="tag-${tag.id}" 
-          ${selectedTags.has(tag.id) ? 'checked' : ''} 
-          onchange="toggleTag('${tag.id}')">
-        <label for="tag-${tag.id}">${tag.name}</label>
-        <span class="count">${photoCount} photos</span>
-      </div>
-    `;
-  }).join('');
-}
+      const list = document.getElementById('albumList');
+      if (!list) return;
+      const search = document.getElementById('albumSearch')?.value.toLowerCase() || '';
+      const filtered = albums.filter(a => a.name.toLowerCase().includes(search));
+      
+      list.innerHTML = filtered.map(album => {
+        const albumKey = album.id + ':' + (album.type || 'normal');
+        const isChecked = Array.from(selectedAlbums).some(a => {
+          const storedKey = typeof a === 'object' ? a.id + ':' + (a.type || 'normal') : String(a) + ':normal';
+          return storedKey === albumKey;
+        });
+        const photoCount = album.item_count || album.count || 0;
+        const typeBadge = album.type === 'condition' ? ' ⚙️' : '';
+        return `
+          <div class="item">
+            <input type="checkbox" id="album-${album.id}" 
+              ${isChecked ? 'checked' : ''} 
+              onchange="toggleAlbum('${album.id}', '${album.type || 'normal'}')">
+            <label for="album-${album.id}">${album.name}${typeBadge}</label>
+            <span class="count">${photoCount} photos</span>
+          </div>
+        `;
+      }).join('');
+    }
 
     function toggleAlbum(id, type) {
-  const key = id + ':' + type;
-  const exists = Array.from(selectedAlbums).some(a => 
-    (typeof a === 'object' ? (a.id + ':' + (a.type||'normal')) : a) === key
-  );
-  
-  if (exists) {
-    // Remove matching object
-    selectedAlbums = new Set(Array.from(selectedAlbums).filter(a => 
-      (typeof a === 'object' ? (a.id + ':' + (a.type||'normal')) : a) !== key
-    ));
-  } else {
-    // Add full object for backend compatibility
-    selectedAlbums.add({ id: id, type: type });
-  }
-  updateCounts();
-}
-
-    function toggleTag(id) {
-      if (selectedTags.has(id)) selectedTags.delete(id);
-      else selectedTags.add(id);
+      const key = id + ':' + type;
+      const exists = Array.from(selectedAlbums).some(a => 
+        (typeof a === 'object' ? a.id + ':' + (a.type||'normal') : a) === key
+      );
+      if (exists) {
+        selectedAlbums = new Set(Array.from(selectedAlbums).filter(a => 
+          (typeof a === 'object' ? a.id + ':' + (a.type||'normal') : a) !== key
+        ));
+      } else {
+        selectedAlbums.add({ id: id, type: type });
+      }
       updateCounts();
     }
 
     function updateCounts() {
-      document.getElementById('albumCount').textContent = `${selectedAlbums.size} album(s) selected`;
-      document.getElementById('tagCount').textContent = `${selectedTags.size} tag(s) selected`;
+      const countEl = document.getElementById('albumCount');
+      if (countEl) countEl.textContent = `${selectedAlbums.size} album(s) selected`;
     }
 
-    function filterItems(type) {
-      if (type === 'album') renderAlbums();
-      else renderTags();
-    }
+    function filterAlbums() { renderAlbums(); }
 
     async function saveConfig() {
-  const status = document.getElementById('saveStatus');
-  try {
-    // Convert Sets to arrays, ensuring album objects are preserved
-    const albumsToSave = Array.from(selectedAlbums).map(a => 
-      typeof a === 'object' ? a : { id: String(a), type: 'normal' }
-    );
-    const tagsToSave = Array.from(selectedTags).map(t => 
-      typeof t === 'object' ? t : { id: String(t) }
-    );
+      const status = document.getElementById('saveStatus');
+      try {
+        const albumsToSave = Array.from(selectedAlbums).map(a => 
+          typeof a === 'object' ? a : { id: String(a), type: 'normal' }
+        );
 
-    const res = await fetch('/api/config', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-admin-token': authToken
-      },
-      body: JSON.stringify({
-        selectedAlbums: albumsToSave,
-        selectedTags: tagsToSave,
-        slideshowInterval: parseInt(document.getElementById('interval').value) * 1000,
-        imageSize: document.getElementById('imageSize').value,
-        shuffle: document.getElementById('shuffle').checked
-      })
-    });
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': authToken },
+          body: JSON.stringify({
+            selectedAlbums: albumsToSave,
+            selectedTags: [],
+            slideshowInterval: parseInt(document.getElementById('interval')?.value || 5) * 1000,
+            imageSize: document.getElementById('imageSize')?.value || 'xl',
+            shuffle: document.getElementById('shuffle')?.checked || false
+          })
+        });
 
-    const data = await res.json();
-    if (data.success) {
-      status.className = 'status success';
-      status.textContent = ' Configuration saved! Slideshow will update automatically.';
-      setTimeout(() => status.className = 'status', 3000);
-    } else {
-      throw new Error(data.error || 'Save failed');
+        const data = await res.json();
+        if (data.success && status) {
+          status.textContent = '✅ Configuration saved!';
+          status.className = 'status success';
+          status.style.display = 'block';
+          setTimeout(() => { status.style.display = 'none'; }, 3000);
+        } else {
+          throw new Error(data.error || 'Save failed');
+        }
+      } catch (err) {
+        if (status) {
+          status.textContent = '❌ ' + err.message;
+          status.className = 'status error';
+          status.style.display = 'block';
+        }
+      }
     }
-  } catch (err) {
-    status.className = 'status error';
-    status.textContent = ' ' + err.message;
-  }
-}
+
+    // ✅ Bulletproof Reset Function
+    async function resetConfig() {
+      if (!confirm('⚠️ This will clear all selected albums and reset settings to defaults.\n\nAre you sure?')) return;
+      
+      const status = document.getElementById('saveStatus');
+      try {
+        const res = await fetch('/api/config/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': authToken }
+        });
+        const data = await res.json();
+        if (data.success) {
+          selectedAlbums = new Set(); // Clear UI state immediately
+          await loadConfig(); // Reload safely
+          if (status) {
+            status.textContent = '✅ Configuration cleared!';
+            status.className = 'status success';
+            status.style.display = 'block';
+            setTimeout(() => { status.style.display = 'none'; }, 3000);
+          }
+        } else {
+          throw new Error(data.error || 'Reset failed');
+        }
+      } catch (err) {
+        console.error('Reset error:', err);
+        if (status) {
+          status.textContent = '❌ ' + err.message;
+          status.className = 'status error';
+          status.style.display = 'block';
+        }
+      }
+    }
 
     // Auto-login if token exists
     if (authToken) {
