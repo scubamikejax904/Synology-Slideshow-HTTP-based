@@ -186,6 +186,25 @@ app.post('/api/config', requireAuth, function(req, res) {
     .catch(function(err) { if (!res.headersSent) res.status(500).json({ error: err.message }); });
 });
 
+//  ADD THIS AFTER YOUR EXISTING /api/config POST ROUTE
+app.post('/api/config/reset', requireAuth, function(req, res) {
+  console.log(' Resetting config to defaults...');
+  var defaultConfig = { 
+    selectedAlbums: [], 
+    selectedTags: [], 
+    slideshowInterval: 5000, 
+    imageSize: 'xl', 
+    shuffle: true 
+  };
+  saveConfig(defaultConfig).then(function() {
+    console.log(' Config reset complete');
+    res.json({ success: true, message: 'Configuration reset to defaults' });
+  }).catch(function(err) {
+    console.error(' Reset failed: ' + err.message);
+    res.status(500).json({ error: 'Reset failed: ' + err.message });
+  });
+});
+
 app.get('/api/albums', requireAuth, function(req, res) {
   getSid().then(function(currentSid) {
     return synoGet({ api: 'SYNO.Foto.Browse.Album', version: API_VERSIONS.browseAlbum, method: 'list', offset: 0, limit: 1000 });
@@ -205,13 +224,26 @@ app.get('/api/albums', requireAuth, function(req, res) {
 
 app.get('/api/tags', requireAuth, function(req, res) {
   getSid().then(function(currentSid) {
-    return synoGet({ api: 'SYNO.Foto.Browse.Tag', version: API_VERSIONS.browseTag, method: 'list', offset: 0, limit: 1000 });
+    //  Switch to GeneralTag API (works on DSM 7.x)
+    return synoGet({ 
+      api: 'SYNO.Foto.Browse.GeneralTag', 
+      version: API_VERSIONS.browseTag, 
+      method: 'list', 
+      offset: 0, 
+      limit: 1000 
+    });
   }).then(function(r) {
     var tags = (r.data && r.data.data && r.data.data.list) || [];
     console.log(' Tags found: ' + tags.length);
-    res.json(tags.map(function(t) { return { id: String(t.id), name: t.name || 'Untitled', item_count: t.item_count || 0 }; }));
+    res.json(tags.map(function(t) { 
+      return { 
+        id: String(t.id), 
+        name: t.name || 'Untitled', 
+        item_count: t.count || t.item_count || 0 
+      }; 
+    }));
   }).catch(function(err) {
-    console.log(' Tags API not supported or failed (expected on some DSM versions)');
+    console.log(' Tags API failed: ' + err.message);
     if (!res.headersSent) res.json([]);
   });
 });
@@ -307,19 +339,36 @@ function fetchAlbumItems(albumEntry, currentSid) {
 function fetchTagItems(tagId, currentSid) {
   var id = String(tagId);
   console.log('Fetching tag id=' + id);
+  
+  //  DSM 7.x requires 'general_tag_id' (not 'general_tag')
+// Alternative filter for some DSM 7.2+ versions:
+  var filterObj = { 
+    rule: { 
+    general_tag: { 
+      op: "in", 
+      value: [parseInt(id)] 
+    } 
+  } 
+};
+  var filterStr = JSON.stringify(filterObj);
+  console.log('   Using filter: ' + filterStr);
+
   return synoGet({
     api: 'SYNO.Foto.Browse.Item',
     version: API_VERSIONS.browseItem,
     method: 'list',
-    filter: JSON.stringify({ general_tag: [parseInt(id)], general_tag_policy: "or" }),
+    filter: filterStr,
     offset: 0,
     limit: 5000,
-    additional: '["thumbnail"]' // Required to get matching cache_key
+    additional: '["thumbnail"]'
   }).then(function(r) {
     var items = (r.data && r.data.data && r.data.data.list) || [];
     console.log('  Tag ' + id + ' -> ' + items.length + ' items');
     return items;
-  }).catch(function(err) { console.error('Tag items error: ' + err.message); return []; });
+  }).catch(function(err) { 
+    console.error('Tag items error: ' + err.message); 
+    return []; 
+  });
 }
 
 // Photos Endpoint
