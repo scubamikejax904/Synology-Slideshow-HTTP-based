@@ -1,6 +1,9 @@
 # NAS Connection
 NAS_URL=https://xxx.xxx.xxx.xxx:port#
 
+# Container port (internal port don't change unless you know what you're doing)
+PORT=3000
+
 # Main Account Credentials (with 2FA)
 SYNO_USER=
 SYNO_PASS=
