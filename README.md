@@ -2,6 +2,8 @@
 
 A lightweight, Docker-based web slideshow that streams photos and GIFs directly from your Synology NAS using the official Photos API. Features album & conditional album selection, smart GIF timing, automatic caching, and a secure admin interface.
 
+**No Warranties expressed or implied, Code is offered as is**
+
 ---
 
 ## 📋 Prerequisites
