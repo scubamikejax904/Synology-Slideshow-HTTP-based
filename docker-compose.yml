@@ -10,5 +10,5 @@ services:
     environment:
       - TZ=America/New_York #Change this to the same timezone you have setup on your NAS
     volumes:
-      - /volume1/docker/syno-slideshow-gif/config.json:/app/config.json 
-      - /volume1/docker/syno-slideshow-gif/public:/app/public
+      - /volume1/docker/syno-slideshow-gif/config.json:/app/config.json  #Change this to the folder you have setup on your NAS for your project
+      - /volume1/docker/syno-slideshow-gif/public:/app/public  #Change this to the folder you have setup on your NAS for your project
