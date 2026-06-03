@@ -4,9 +4,8 @@ services:
     build: .
     container_name: syno-photos-slideshow
     restart: unless-stopped
-    ports:
-      - "23535:3000" #Change outfacing port if necessary
     env_file: .env
+    network_mode: host
     environment:
       - TZ=America/New_York #Change this to the same timezone you have setup on your NAS
     volumes:
