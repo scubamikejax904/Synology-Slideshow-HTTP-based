@@ -14,6 +14,11 @@ A lightweight, Docker-based web slideshow that streams photos and GIFs directly 
 - Local network access (or reverse proxy if exposing externally)
 
 ---
+## 🐳 Installation & Deployment
+*******I used Container Manager to build this project on my Synology NAS, The below docker commands are AI generated and untested*******
+
+## See further below for Synology container manager instructions
+
 
 ## ⚙️ Environment Setup (`.env`)
 
@@ -26,16 +31,13 @@ Create a file named `.env` in your project root (`/volume1/docker/slideshow/`) w
 | `SYNO_PASS` | Password for the Synology user | `your_syno_password` |
 | `ADMIN_TOKEN` | Secret used to log into `admin.html` (recommended: 20+ chars) | `Kx9#mP2$vLq8!nR5wY7@zA` |
 | `TOTP_SECRET` | **Base32 secret** from Synology 2FA setup (not the 6-digit code) | `JBSWY3DPEHPK3PXP` |
-| `PORT` | Container port. Defaults to `3000` **don't change**| `3000` |
+| `PORT` | Container port. Defaults to `13535` change to whatever you want to use | `13536` |
 
 > 🔒 **Security Note:** Never commit `.env` to version control. Rotate `ADMIN_TOKEN` if exposed.
 
 ---
 
-## 🐳 Installation & Deployment
-*******I used Container Manager to build this project on my Synology NAS, The below docker commands are AI generated and untested*******
 
-## See further below for Synology container manager instructions
 
 
 1. **Create project directory & files:**
@@ -79,7 +81,7 @@ Go to Configuration & Usage below
 | `SYNO_PASS` | Password for the Synology user | `your_syno_password` |
 | `ADMIN_TOKEN` | Secret used to log into `admin.html` (recommended: 20+ chars) | `Kx9#mP2$vLq8!nR5wY7@zA` |
 | `TOTP_SECRET` | **Base32 secret** from Synology 2FA setup (not the 6-digit code) | `JBSWY3DPEHPK3PXP` |
-| `PORT` | Container port. Defaults to `3000` **don't change**| `3000` |
+| `PORT` | Container port. Defaults to `13535` change to whatever you want to use | `13536` |
 
 > 🔒 **Security Note:** Never commit `.env` to version control. Rotate `ADMIN_TOKEN` if exposed.
 
