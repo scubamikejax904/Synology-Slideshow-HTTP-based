@@ -31,10 +31,11 @@ app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Headers", "x-admin-token, Content-Type");
   next();
 });
+
 var NAS_URL = process.env.NAS_URL;
-var PORT = process.env.PORT || 3000;
-var SYN_USER = process.env.SYNO_USER;
-var SYN_PASS = process.env.SYNO_PASS;
+var PORT = process.env.PORT || 13535;
+var SYNO_USER = process.env.SYNO_USER;
+var SYNO_PASS = process.env.SYNO_PASS;
 var ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 var TOTP_SECRET = process.env.TOTP_SECRET;
 
@@ -48,7 +49,7 @@ var API_VERSIONS = {
   thumbnail:         2
 };
 
-if (!SYN_USER || !SYN_PASS || !ADMIN_TOKEN) {
+if (!SYNO_USER || !SYNO_PASS || !ADMIN_TOKEN) {
   console.error('ERROR: Missing required env vars: SYNO_USER, SYNO_PASS, ADMIN_TOKEN');
   process.exit(1);
 }
@@ -103,14 +104,14 @@ function getSid() {
   return getOtpCode().then(function(otpCode) {
     var postData =
       'api=SYNO.API.Auth&version=' + API_VERSIONS.auth +
-      '&method=login&account=' + encodeURIComponent(SYN_USER) +
-      '&passwd=' + encodeURIComponent(SYN_PASS) +
+      '&method=login&account=' + encodeURIComponent(SYNO_USER) +
+      '&passwd=' + encodeURIComponent(SYNO_PASS) +
       '&format=sid&enable_syno_token=yes' +
       (otpCode ? '&otp_code=' + encodeURIComponent(otpCode) : '');
 
     return axios.post(NAS_URL + '/webapi/auth.cgi', postData, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      httpsAgent: httpsAgent, timeout: 15000
+      httpsAgent: httpsAgent, timeout: 30000
     });
   }).then(function(res) {
     if (!res.data || !res.data.success) {
@@ -125,33 +126,48 @@ function getSid() {
   });
 }
 
-// Helper: Synology GET Request
+// Helper: Synology GET Request (FIXED: Uses params correctly & Headers for Token)
 function synoGet(params) {
   return getSid().then(function(currentSid) {
-    var p = {};
-    for (var k in params) p[k] = params[k];
-    if (!p._sid) p._sid = currentSid;
-    if (synoToken && !p.SynoToken) p.SynoToken = synoToken;
-
+    // Ensure _sid is present
+    if (!params._sid) params._sid = currentSid;
+    
+    var headers = {};
     var parts = [];
-    for (var key in p) {
-      if (p.hasOwnProperty(key) && p[key] != null) {
-        parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(p[key])));
+    
+    // Extract SynoToken from params and move it to Header for better compatibility
+    if (params.SynoToken) {
+      headers['X-SYNO-TOKEN'] = params.SynoToken;
+      delete params.SynoToken; // Remove from URL params to keep it clean
+    }
+
+    for (var key in params) {
+      if (params.hasOwnProperty(key) && params[key] != null) {
+        parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(params[key])));
       }
     }
     var url = NAS_URL + '/webapi/entry.cgi?' + parts.join('&');
-    console.log('GET ' + url.replace(/_sid=[^&]+/, '_sid=REDACTED').replace(/SynoToken=[^&]+/, 'SynoToken=REDACTED'));
+    
+    console.log('GET ' + url.replace(/_sid=[^&]+/, '_sid=REDACTED'));
 
     return axios.get(url, {
-      httpsAgent: httpsAgent, timeout: 60000, validateStatus: function() { return true; }
+      httpsAgent: httpsAgent, 
+      timeout: 60000, 
+      headers: headers, 
+      validateStatus: function() { return true; }
     }).then(function(res) {
       var data = res.data;
+      
       // Session expired
       if (data && data.error && data.error.code === 105) {
         console.warn('Session expired, re-authing...');
         sid = null; lastLogin = 0; synoToken = null;
-        return getSid().then(function(newSid) { params._sid = newSid; return synoGet(params); });
+        return getSid().then(function(newSid) { 
+          params._sid = newSid; 
+          return synoGet(params); 
+        });
       }
+      
       // API error
       if (!data || !data.success) {
         var code = (data && data.error && data.error.code) || '?';
@@ -202,9 +218,9 @@ app.post('/api/config', requireAuth, function(req, res) {
     .catch(function(err) { if (!res.headersSent) res.status(500).json({ error: err.message }); });
 });
 
-//  ADD THIS AFTER YOUR EXISTING /api/config POST ROUTE
+// Reset Config Endpoint
 app.post('/api/config/reset', requireAuth, function(req, res) {
-  console.log(' Resetting config to defaults...');
+  console.log('Resetting config to defaults...');
   var defaultConfig = { 
     selectedAlbums: [], 
     selectedTags: [], 
@@ -213,10 +229,10 @@ app.post('/api/config/reset', requireAuth, function(req, res) {
     shuffle: true 
   };
   saveConfig(defaultConfig).then(function() {
-    console.log(' Config reset complete');
+    console.log('Config reset complete');
     res.json({ success: true, message: 'Configuration reset to defaults' });
   }).catch(function(err) {
-    console.error(' Reset failed: ' + err.message);
+    console.error('Reset failed: ' + err.message);
     res.status(500).json({ error: 'Reset failed: ' + err.message });
   });
 });
@@ -226,7 +242,7 @@ app.get('/api/albums', requireAuth, function(req, res) {
     return synoGet({ api: 'SYNO.Foto.Browse.Album', version: API_VERSIONS.browseAlbum, method: 'list', offset: 0, limit: 1000 });
   }).then(function(r) {
     var albums = (r.data && r.data.data && r.data.data.list) || [];
-    console.log(' Albums found: ' + albums.length);
+    console.log('Albums found: ' + albums.length);
     res.json(albums.map(function(a) {
       return {
         id: String(a.id),
@@ -240,7 +256,6 @@ app.get('/api/albums', requireAuth, function(req, res) {
 
 app.get('/api/tags', requireAuth, function(req, res) {
   getSid().then(function(currentSid) {
-    //  Switch to GeneralTag API (works on DSM 7.x)
     return synoGet({ 
       api: 'SYNO.Foto.Browse.GeneralTag', 
       version: API_VERSIONS.browseTag, 
@@ -250,7 +265,7 @@ app.get('/api/tags', requireAuth, function(req, res) {
     });
   }).then(function(r) {
     var tags = (r.data && r.data.data && r.data.data.list) || [];
-    console.log(' Tags found: ' + tags.length);
+    console.log('Tags found: ' + tags.length);
     res.json(tags.map(function(t) { 
       return { 
         id: String(t.id), 
@@ -259,7 +274,7 @@ app.get('/api/tags', requireAuth, function(req, res) {
       }; 
     }));
   }).catch(function(err) {
-    console.log(' Tags API failed: ' + err.message);
+    console.log('Tags API failed: ' + err.message);
     if (!res.headersSent) res.json([]);
   });
 });
@@ -272,7 +287,6 @@ function fetchAlbumItems(albumEntry, currentSid) {
   if (type === 'condition') {
     console.log('Fetching conditional album ' + id + '...');
     
-    // Try ConditionAlbum API first
     return synoGet({
       api: 'SYNO.Foto.Browse.ConditionAlbum',
       version: API_VERSIONS.browseCondAlbum,
@@ -282,21 +296,19 @@ function fetchAlbumItems(albumEntry, currentSid) {
       limit: 5000,
       additional: '["thumbnail"]'
     }).then(function(r) {
-      // Try BOTH response paths (DSM version differences)
       var items = (r.data && r.data.list) || 
                   (r.data && r.data.data && r.data.data.list) || 
                   [];
                   
       console.log('  Cond album ' + id + ' -> ' + items.length + ' items');
       
-      //  If items have small IDs (< 100), they're references; try fallback
       if (items.length > 0 && items[0].id < 100) {
-        console.log('  ⚠ Small IDs detected, trying fallback with normal Item API...');
+        console.log('  Small IDs detected, trying fallback with normal Item API...');
         return synoGet({
           api: 'SYNO.Foto.Browse.Item',
           version: API_VERSIONS.browseItem,
           method: 'list',
-          album_id: parseInt(id),  // Try using album_id instead of condition_id
+          album_id: parseInt(id),
           offset: 0,
           limit: 5000,
           additional: '["thumbnail"]'
@@ -306,13 +318,12 @@ function fetchAlbumItems(albumEntry, currentSid) {
           return items2;
         }).catch(function(err) {
           console.log('  Fallback failed: ' + err.message);
-          return items; // Return original items if fallback fails
+          return items;
         });
       }
       return items;
     }).catch(function(err) {
       console.error('  Cond album ' + id + ' failed: ' + err.message);
-      //  Fallback to normal Item API on error
       console.log('  Trying fallback with normal Item API...');
       return synoGet({
         api: 'SYNO.Foto.Browse.Item',
@@ -333,7 +344,6 @@ function fetchAlbumItems(albumEntry, currentSid) {
     });
   }
   
-  // Normal albums (unchanged)
   return synoGet({
     api: 'SYNO.Foto.Browse.Item',
     version: API_VERSIONS.browseItem,
@@ -356,16 +366,15 @@ function fetchTagItems(tagId, currentSid) {
   var id = String(tagId);
   console.log('Fetching tag id=' + id);
   
-  //  DSM 7.x requires 'general_tag_id' (not 'general_tag')
-// Alternative filter for some DSM 7.2+ versions:
+  // Using rule-based filter for DSM 7.2+ compatibility
   var filterObj = { 
     rule: { 
-    general_tag: { 
-      op: "in", 
-      value: [parseInt(id)] 
+      general_tag: { 
+        op: "in", 
+        value: [parseInt(id)] 
+      } 
     } 
-  } 
-};
+  };
   var filterStr = JSON.stringify(filterObj);
   console.log('   Using filter: ' + filterStr);
 
@@ -380,6 +389,11 @@ function fetchTagItems(tagId, currentSid) {
   }).then(function(r) {
     var items = (r.data && r.data.data && r.data.data.list) || [];
     console.log('  Tag ' + id + ' -> ' + items.length + ' items');
+    
+    // If filter is ignored and returns 5000, warn user
+    if (items.length >= 5000) {
+      console.warn('  Filter may have been ignored by Synology (returned max limit).');
+    }
     return items;
   }).catch(function(err) { 
     console.error('Tag items error: ' + err.message); 
@@ -388,38 +402,6 @@ function fetchTagItems(tagId, currentSid) {
 }
 
 // Photos Endpoint
-function getPhotoCacheKey(photoId, currentSid) {
-  return synoGet({
-    api: 'SYNO.Foto.Browse.Item',
-    version: API_VERSIONS.browseItem,
-    method: 'list',
-    id: parseInt(photoId),  // Query by specific ID
-    offset: 0,
-    limit: 1,
-    additional: '["thumbnail"]'
-  }).then(function(r) {
-    var items = (r.data && r.data.data && r.data.data.list) || [];
-    if (items.length > 0) {
-      var item = items[0];
-      var cacheKey = (item.additional && item.additional.thumbnail && item.additional.thumbnail.cache_key) ? item.additional.thumbnail.cache_key : '';
-      // Verify it matches
-      if (cacheKey) {
-        var keyId = cacheKey.split('_')[0];
-        if (keyId === String(photoId)) {
-          console.log('   Got matching cache_key for ' + photoId + ': ' + cacheKey);
-          return cacheKey;
-        } else {
-          console.warn('   Cache_key still mismatch for ' + photoId + ': got ' + keyId);
-          return '';
-        }
-      }
-    }
-    return '';
-  }).catch(function(err) {
-    console.error('   Failed to get cache_key for ' + photoId + ': ' + err.message);
-    return '';
-  });
-}
 app.get('/api/photos', function(req, res) {
   loadConfig().then(function(config) {
     if (!config.selectedAlbums.length && !config.selectedTags.length) {
@@ -435,10 +417,9 @@ app.get('/api/photos', function(req, res) {
           items.forEach(function(i) {
             if (!seen[i.id]) {
               seen[i.id] = true;
-              //  Always use the cache_key from the API response, even if it doesn't match the id
               var cacheKey = (i.additional && i.additional.thumbnail && i.additional.thumbnail.cache_key) 
                 ? i.additional.thumbnail.cache_key 
-                : String(i.id); // Fallback to id if cache_key is missing
+                : String(i.id);
               photos.push({ id: String(i.id), cache_key: cacheKey });
             }
           });
@@ -452,20 +433,17 @@ app.get('/api/photos', function(req, res) {
           items.forEach(function(i) {
             if (!seen[i.id]) {
               seen[i.id] = true;
-              //  Always use the cache_key from the API response
               var cacheKey = (i.additional && i.additional.thumbnail && i.additional.thumbnail.cache_key) 
                 ? i.additional.thumbnail.cache_key 
                 : String(i.id);
-              photos.push({ 
-      id: String(i.id), 
-      cache_key: cacheKey });
-  }
-});
+              photos.push({ id: String(i.id), cache_key: cacheKey });
+            }
+          });
         }));
       });
 
       return Promise.all(promises).then(function() {
-        console.log(' Unique photos collected: ' + photos.length);
+        console.log('Unique photos collected: ' + photos.length);
         if (photos.length > 0) {
           console.log(' First photo: id=' + photos[0].id + ' cache_key=' + photos[0].cache_key);
         }
@@ -482,18 +460,16 @@ app.get('/api/photos', function(req, res) {
     .catch(function(err) { console.error('Photos error: ' + err.message); if (!res.headersSent) res.status(500).json({ error: err.message }); });
 });
 
-// IMAGE PROXY - FINAL: Download API with Thumbnail fallback + cache_key support
+// IMAGE PROXY
 app.get('/api/image', function(req, res) {
   var photoId = req.query.id;
-  var originalCacheKey = req.query.cache_key || ''; //  Capture cache_key from request
+  var originalCacheKey = req.query.cache_key || '';
   if (!photoId) return res.status(400).send('Missing photo ID');
 
   console.log('[IMAGE] Request: id=' + photoId + ' (original file)');
 
-  // Add a tiny delay to avoid rate limiting (50ms)
   return delay(10).then(function() {
     return getSid().then(function(currentSid) {
-      //  Try Download API v2 first (for GIF support)
       var downloadParams = {
         api: 'SYNO.Foto.Download',
         version: 2,
@@ -513,13 +489,11 @@ app.get('/api/image', function(req, res) {
         }
       }
       var downloadUrl = NAS_URL + '/webapi/entry.cgi?' + downloadParts.join('&');
-      console.log('[IMAGE] Trying Download API: ' + downloadUrl);
 
       return axios.get(downloadUrl, {
         httpsAgent: httpsAgent, responseType: 'arraybuffer', timeout: 30000, validateStatus: function(s) { return s < 500; }
       }).then(function(imgRes) {
         var ct = imgRes.headers['content-type'] || '';
-        // If Download API succeeded, return the image
         if (!ct.includes('text/html') && !ct.includes('application/json')) {
           console.log('[IMAGE] SUCCESS (Download API): ' + ct);
           res.set('Cache-Control', 'public, max-age=86400'); 
@@ -527,12 +501,10 @@ app.get('/api/image', function(req, res) {
           res.set('X-Image-Type', ct);
           return res.send(imgRes.data);
         }
-        // If Download API returned error, fall back to Thumbnail API
         throw new Error('Download API failed, falling back to Thumbnail');
       }).catch(function(downloadErr) {
-        console.log('[IMAGE] Download API failed: ' + downloadErr.message + ', trying Thumbnail API...');
+        console.log('[IMAGE] Download API failed, trying Thumbnail API...');
         
-        //  Fallback to Thumbnail API WITH cache_key parameter
         var thumbParams = {
           api: 'SYNO.Foto.Thumbnail',
           version: 2,
@@ -544,15 +516,13 @@ app.get('/api/image', function(req, res) {
           _sid: currentSid
         };
         
-        //  Add cache_key if provided and validate prefix logic
         if (originalCacheKey) {
           var keyPrefix = originalCacheKey.split('_')[0];
-          // Use cache_key prefix as photo ID if they don't match and prefix is large
           if (keyPrefix !== photoId && (parseInt(keyPrefix) > 1000 || (parseInt(photoId) < 100 && parseInt(keyPrefix) > parseInt(photoId)))) {
-            console.log('[IMAGE] Thumbnail fallback: using cache_key prefix ' + keyPrefix + ' as photo ID (was ' + photoId + ')');
-            thumbParams.id = keyPrefix; // Use prefix as real ID
+            console.log('[IMAGE] Thumbnail fallback: using cache_key prefix ' + keyPrefix + ' as photo ID');
+            thumbParams.id = keyPrefix;
           }
-          thumbParams.cache_key = originalCacheKey; //  Always include cache_key for Thumbnail API
+          thumbParams.cache_key = originalCacheKey;
         }
         
         if (synoToken) thumbParams.SynoToken = synoToken;
@@ -562,10 +532,9 @@ app.get('/api/image', function(req, res) {
           if (thumbParams[k] != null) thumbParts.push(encodeURIComponent(k) + '=' + encodeURIComponent(String(thumbParams[k])));
         }
         var thumbUrl = NAS_URL + '/webapi/entry.cgi?' + thumbParts.join('&');
-        console.log('[IMAGE] Thumbnail fallback URL: ' + thumbUrl);
         
         return axios.get(thumbUrl, {
-          httpsAgent: httpsAgent, responseType: 'arraybuffer', timeout: 15000, validateStatus: function(s) { return s < 500; }
+          httpsAgent: httpsAgent, responseType: 'arraybuffer', timeout: 30000, validateStatus: function(s) { return s < 500; }
         }).then(function(thumbRes) {
           var ct = thumbRes.headers['content-type'] || '';
           if (ct.includes('text/html') || ct.includes('application/json')) {
@@ -587,8 +556,7 @@ app.get('/api/image', function(req, res) {
   });
 });
 
-
-//Health
+// Health
 app.get('/health', function(req, res) {
   res.json({ status: 'ok', session: sid ? 'active' : 'inactive', timestamp: Date.now() });
 });
